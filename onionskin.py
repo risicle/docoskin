@@ -76,3 +76,18 @@ def match_and_warp_candidate(
         raise OnionSkinNoMatchFoundError("Not enough RANSAC inliers found ({})".format(len(n_inliers)))
 
     return cv2.warpPerspective(candidate_image, M, tuple(reversed(reference_image.shape)), flags=cv2.INTER_CUBIC)
+
+
+def diff_overlay_images(reference_image, candidate_image):
+    # combine images into a single two-channel image
+    stacked_image = numpy.stack((reference_image, candidate_image,), axis=-1)
+
+    # now we can apply a matrix multiplication to produce two RGB images, highlighting the removed and added sections
+    # respectively. we are essentially performing a linear transformation of the planar, 2d colorspace into the 3d
+    # RGB cube if it help to visualize it that way.
+    removed_image = numpy.dot(stacked_image, numpy.float32(((0.0, 1.0, 1.0,), (1.0, 0.0, 0.0,),))).astype("uint8")
+    added_image = numpy.dot(stacked_image, numpy.float32(((0.0, 1.0, 0.0,), (1.0, 0.0, 1.0,),))).astype("uint8")
+
+    # the final image is produced by selecting between these two RGB images depending on whether each pixel underwent a
+    # removal (less black) or an addition (more black). we determine this using a simple pixel value comparison
+    return numpy.where(numpy.expand_dims(stacked_image[:,:,0] > stacked_image[:,:,1], -1), added_image, removed_image)
