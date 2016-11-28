@@ -1,3 +1,5 @@
+import logging
+
 import cv2
 import numpy
 
@@ -8,6 +10,9 @@ DEFAULT_FEATURE_DISTANCE_RATIO_THRESHOLD=0.7
 DEFAULT_N_MATCH_THRESHOLD=10
 DEFAULT_RANSAC_REPROJ_THRESHOLD=5.0
 DEFAULT_RANSAC_N_INLIER_THRESHOLD=4
+
+
+logger = logging.getLogger("onionskin")
 
 
 class OnionSkinInvalidArgumentCombinationError(TypeError): pass
@@ -39,6 +44,8 @@ def match_and_warp_candidate(
 
     candidate_keypoints, candidate_descriptors = feature_detector.detectAndCompute(candidate_image, None)
 
+    logger.debug("Found %i keypoints in candidate", len(candidate_keypoints))
+
     already_trained_descriptors = feature_matcher.getTrainDescriptors()
     if already_trained_descriptors:
         if len(reference_keypoints or ()) != len(already_trained_descriptors):
@@ -50,6 +57,7 @@ def match_and_warp_candidate(
     else:
         if not (reference_keypoints or reference_descriptors):
             reference_keypoints, reference_descriptors = feature_detector.detectAndCompute(reference_image, None)
+            logger.debug("Found %i keypoints in reference", len(reference_keypoints))
         elif reference_keypoints and reference_descriptors:
             if len(reference_keypoints) != len(reference_descriptors):
                 raise OnionSkinInvalidArgumentCombinationError(
@@ -67,13 +75,17 @@ def match_and_warp_candidate(
     if len(good_matches) < n_match_threshold:
         raise OnionSkinNoMatchFoundError("Not enough 'good' feature matches found ({})".format(len(good_matches)))
 
+    logger.debug("Found %i/%i 'good' keypoint matches", len(good_matches), len(matches))
+
     reference_coords = numpy.float32(tuple(reference_keypoints[m.trainIdx].pt for m in good_matches)).reshape(-1, 1, 2,)
     candidate_coords = numpy.float32(tuple(candidate_keypoints[m.queryIdx].pt for m in good_matches)).reshape(-1, 1, 2,)
 
     M, mask = cv2.findHomography(candidate_coords, reference_coords, cv2.RANSAC, ransac_reproj_threshold)
     n_inliers = sum(mask.ravel())
-    if n_inliers < 4:
+    if n_inliers < ransac_n_inlier_threshold:
         raise OnionSkinNoMatchFoundError("Not enough RANSAC inliers found ({})".format(len(n_inliers)))
+
+    logger.debug("Used %i keypoints as inliers", n_inliers)
 
     return cv2.warpPerspective(candidate_image, M, tuple(reversed(reference_image.shape)), flags=cv2.INTER_CUBIC)
 
