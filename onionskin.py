@@ -4,8 +4,7 @@ import cv2
 import numpy
 
 
-DEFAULT_ORB_N_LEVELS=11
-DEFAULT_ORB_SCALE_FACTOR=1.2
+DEFAULT_AKAZE_THRESHOLD=0.002
 DEFAULT_FEATURE_DISTANCE_RATIO_THRESHOLD=0.7
 DEFAULT_N_MATCH_THRESHOLD=10
 DEFAULT_RANSAC_REPROJ_THRESHOLD=5.0
@@ -20,11 +19,11 @@ class OnionSkinNoMatchFoundError(Exception): pass
 
 
 def default_feature_detector():
-    return cv2.ORB_create(nlevels=DEFAULT_ORB_N_LEVELS, scaleFactor=DEFAULT_ORB_SCALE_FACTOR)
+    return cv2.AKAZE_create(threshold=DEFAULT_AKAZE_THRESHOLD)
 
 
 def default_feature_matcher():
-    return cv2.BFMatcher()
+    return cv2.BFMatcher(normType=cv2.NORM_HAMMING)
 
 
 def match_and_warp_candidate(
