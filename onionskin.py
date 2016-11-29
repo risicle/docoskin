@@ -103,3 +103,23 @@ def diff_overlay_images(reference_image, candidate_image):
     # the final image is produced by selecting between these two RGB images depending on whether each pixel underwent a
     # removal (less black) or an addition (more black). we determine this using a simple pixel value comparison
     return numpy.where(numpy.expand_dims(stacked_image[:,:,0] > stacked_image[:,:,1], -1), added_image, removed_image)
+
+
+if __name__ == "__main__":
+    import argparse
+    from sys import stdout
+
+    parser = argparse.ArgumentParser(
+        description="Onion-skin two document images and output resulting png file to stdout"
+    )
+    parser.add_argument("reference_image", help="Reference document image file")
+    parser.add_argument("candidate_image", help="Candidate document image file")
+    args = parser.parse_args()
+
+    reference_image = cv2.imread(args.reference_image, cv2.IMREAD_GRAYSCALE)
+    candidate_image = cv2.imread(args.candidate_image, cv2.IMREAD_GRAYSCALE)
+
+    warped_candidate = match_and_warp_candidate(reference_image, candidate_image)
+    overlayed_candidate = diff_overlay_images(reference_image, warped_candidate)
+
+    cv2.imencode(".png", overlayed_candidate)[1].tofile(stdout)
