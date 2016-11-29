@@ -114,7 +114,11 @@ if __name__ == "__main__":
     )
     parser.add_argument("reference_image", help="Reference document image file")
     parser.add_argument("candidate_image", help="Candidate document image file")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Emit debugging information")
     args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
 
     reference_image = cv2.imread(args.reference_image, cv2.IMREAD_GRAYSCALE)
     candidate_image = cv2.imread(args.candidate_image, cv2.IMREAD_GRAYSCALE)
