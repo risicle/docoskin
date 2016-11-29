@@ -96,7 +96,8 @@ def diff_overlay_images(reference_image, candidate_image):
     # now we can apply a matrix multiplication to produce two RGB images, highlighting the removed and added sections
     # respectively. we are essentially performing a linear transformation of the planar, 2d colorspace into the 3d
     # RGB cube if it help to visualize it that way.
-    removed_image = numpy.dot(stacked_image, numpy.float32(((0.0, 1.0, 1.0,), (1.0, 0.0, 0.0,),))).astype("uint8")
+    # a reminder here that opencv uses BGR order for some reason
+    removed_image = numpy.dot(stacked_image, numpy.float32(((1.0, 1.0, 0.0,), (0.0, 0.0, 1.0,),))).astype("uint8")
     added_image = numpy.dot(stacked_image, numpy.float32(((0.0, 1.0, 0.0,), (1.0, 0.0, 1.0,),))).astype("uint8")
 
     # the final image is produced by selecting between these two RGB images depending on whether each pixel underwent a
