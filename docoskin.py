@@ -11,11 +11,11 @@ DEFAULT_RANSAC_REPROJ_THRESHOLD=5.0
 DEFAULT_RANSAC_N_INLIER_THRESHOLD=4
 
 
-logger = logging.getLogger("onionskin")
+logger = logging.getLogger("docoskin")
 
 
-class OnionSkinInvalidArgumentCombinationError(TypeError): pass
-class OnionSkinNoMatchFoundError(Exception): pass
+class DocoskinInvalidArgumentCombinationError(TypeError): pass
+class DocoskinNoMatchFoundError(Exception): pass
 
 
 def default_feature_detector():
@@ -48,7 +48,7 @@ def match_and_warp_candidate(
     already_trained_descriptors = feature_matcher.getTrainDescriptors()
     if already_trained_descriptors:
         if len(reference_keypoints or ()) != len(already_trained_descriptors):
-            raise OnionSkinInvalidArgumentCombinationError(
+            raise DocoskinInvalidArgumentCombinationError(
                 "Pre-trained feature matchers require a reference_keypoints argument containing the corresponding "
                 "keypoints"
             )
@@ -59,11 +59,11 @@ def match_and_warp_candidate(
             logger.debug("Found %i keypoints in reference", len(reference_keypoints))
         elif reference_keypoints and reference_descriptors:
             if len(reference_keypoints) != len(reference_descriptors):
-                raise OnionSkinInvalidArgumentCombinationError(
+                raise DocoskinInvalidArgumentCombinationError(
                     "reference_keypoints and reference_descriptors length mismatch"
                 )
         else:
-            raise OnionSkinInvalidArgumentCombinationError(
+            raise DocoskinInvalidArgumentCombinationError(
                 "Doesn't make sense to supply reference_keypoints without reference_descriptors or vice-versa"
             )
 
@@ -72,7 +72,7 @@ def match_and_warp_candidate(
 
     good_matches = tuple(m for m, n in matches if m.distance < feature_distance_ratio_threshold*n.distance)
     if len(good_matches) < n_match_threshold:
-        raise OnionSkinNoMatchFoundError("Not enough 'good' feature matches found ({})".format(len(good_matches)))
+        raise DocoskinNoMatchFoundError("Not enough 'good' feature matches found ({})".format(len(good_matches)))
 
     logger.debug("Found %i/%i 'good' keypoint matches", len(good_matches), len(matches))
 
@@ -82,7 +82,7 @@ def match_and_warp_candidate(
     M, mask = cv2.findHomography(candidate_coords, reference_coords, cv2.RANSAC, ransac_reproj_threshold)
     n_inliers = sum(mask.ravel())
     if n_inliers < ransac_n_inlier_threshold:
-        raise OnionSkinNoMatchFoundError("Not enough RANSAC inliers found ({})".format(len(n_inliers)))
+        raise DocoskinNoMatchFoundError("Not enough RANSAC inliers found ({})".format(len(n_inliers)))
 
     logger.debug("Used %i keypoints as inliers", n_inliers)
 
