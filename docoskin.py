@@ -1,3 +1,5 @@
+from collections import namedtuple
+from itertools import compress
 import logging
 
 import cv2
@@ -20,6 +22,18 @@ class DocoskinInvalidArgumentCombinationError(TypeError): pass
 class DocoskinNoMatchFoundError(Exception): pass
 
 
+FindCandidateHomographyExtendedOutput = namedtuple(
+    "FindCandidateHomographyExtendedOutput",
+    (
+        "reference_keypoints",
+        "candidate_keypoints",
+        "inlier_matches",
+        "outlier_matches",
+        "bad_matches",
+    ),
+)
+
+
 def default_feature_detector():
     return cv2.AKAZE_create(threshold=DEFAULT_AKAZE_THRESHOLD)
 
@@ -28,7 +42,7 @@ def default_feature_matcher():
     return cv2.BFMatcher(normType=cv2.NORM_HAMMING)
 
 
-def match_and_warp_candidate(
+def find_candidate_homography(
         reference_image,
         candidate_image,
         feature_detector=None,
@@ -72,22 +86,46 @@ def match_and_warp_candidate(
         # so now reference_keypoints and reference_descriptors should have been defined one way or another
         matches = feature_matcher.knnMatch(candidate_descriptors, reference_descriptors, k=2)
 
-    good_matches = tuple(m for m, n in matches if m.distance < feature_distance_ratio_threshold*n.distance)
-    if len(good_matches) < n_match_threshold:
-        raise DocoskinNoMatchFoundError("Not enough 'good' feature matches found ({})".format(len(good_matches)))
+    good_match_mask = tuple(m.distance < feature_distance_ratio_threshold*n.distance for m, n in matches)
+    n_good_matches = sum(1 for good in good_match_mask if good)
+    if n_good_matches < n_match_threshold:
+        raise DocoskinNoMatchFoundError("Not enough 'good' feature matches found ({})".format(n_good_matches))
 
-    logger.debug("Found %i/%i 'good' keypoint matches", len(good_matches), len(matches))
+    logger.debug("Found %i/%i 'good' keypoint matches", n_good_matches, len(matches))
 
-    reference_coords = numpy.float32(tuple(reference_keypoints[m.trainIdx].pt for m in good_matches)).reshape(-1, 1, 2,)
-    candidate_coords = numpy.float32(tuple(candidate_keypoints[m.queryIdx].pt for m in good_matches)).reshape(-1, 1, 2,)
+    reference_coords = numpy.float32(tuple(
+        reference_keypoints[m.trainIdx].pt for m, n in compress(matches, good_match_mask)
+    )).reshape(-1, 1, 2,)
+    candidate_coords = numpy.float32(tuple(
+        candidate_keypoints[m.queryIdx].pt for m, n in compress(matches, good_match_mask)
+    )).reshape(-1, 1, 2,)
 
-    M, mask = cv2.findHomography(candidate_coords, reference_coords, cv2.RANSAC, ransac_reproj_threshold)
-    n_inliers = sum(mask.ravel())
+    M, inlier_mask = cv2.findHomography(candidate_coords, reference_coords, cv2.RANSAC, ransac_reproj_threshold)
+    n_inliers = sum(inlier_mask.flat)
     if n_inliers < ransac_n_inlier_threshold:
-        raise DocoskinNoMatchFoundError("Not enough RANSAC inliers found ({})".format(len(n_inliers)))
+        raise DocoskinNoMatchFoundError("Not enough RANSAC inliers found ({})".format(n_inliers))
 
     logger.debug("Used %i keypoints as inliers", n_inliers)
 
+    extended_output = FindCandidateHomographyExtendedOutput(
+        reference_keypoints=reference_keypoints,
+        candidate_keypoints=candidate_keypoints,
+        inlier_matches=tuple(
+            m for m, n in compress(compress(matches, good_match_mask), inlier_mask.flat)
+        ),
+        outlier_matches=tuple(
+            m for m, n in compress(compress(matches, good_match_mask), ((not inlier) for inlier in inlier_mask.flat))
+        ),
+        bad_matches=tuple(
+            m for m, n in compress(matches, ((not good) for good in good_match_mask))
+        ),
+    )
+
+    return M, extended_output
+
+
+def match_and_warp_candidate(reference_image, candidate_image, **kwargs):
+    M = find_candidate_homography(reference_image, candidate_image, **kwargs)[0]
     return cv2.warpPerspective(candidate_image, M, tuple(reversed(reference_image.shape)), flags=cv2.INTER_CUBIC)
 
 
