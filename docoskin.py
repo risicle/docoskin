@@ -9,6 +9,8 @@ DEFAULT_FEATURE_DISTANCE_RATIO_THRESHOLD=0.7
 DEFAULT_N_MATCH_THRESHOLD=10
 DEFAULT_RANSAC_REPROJ_THRESHOLD=5.0
 DEFAULT_RANSAC_N_INLIER_THRESHOLD=4
+DEFAULT_REMOVED_COLOR_MATRIX=((1.0, 1.0, 0.0,), (0.0, 0.0, 1.0,),)
+DEFAULT_ADDED_COLOR_MATRIX=((0.0, 1.0, 0.0,), (1.0, 0.0, 1.0,),)
 
 
 logger = logging.getLogger("docoskin")
@@ -89,16 +91,22 @@ def match_and_warp_candidate(
     return cv2.warpPerspective(candidate_image, M, tuple(reversed(reference_image.shape)), flags=cv2.INTER_CUBIC)
 
 
-def diff_overlay_images(reference_image, candidate_image):
+def diff_overlay_images(
+        reference_image,
+        candidate_image,
+        # a reminder here that opencv uses BGR order for some reason and this reflected in the order these matrices are
+        # specified
+        removed_color_matrix=DEFAULT_REMOVED_COLOR_MATRIX,
+        added_color_matrix=DEFAULT_ADDED_COLOR_MATRIX,
+        ):
     # combine images into a single two-channel image
     stacked_image = numpy.stack((reference_image, candidate_image,), axis=-1)
 
     # now we can apply a matrix multiplication to produce two RGB images, highlighting the removed and added sections
     # respectively. we are essentially performing a linear transformation of the planar, 2d colorspace into the 3d
     # RGB cube if it help to visualize it that way.
-    # a reminder here that opencv uses BGR order for some reason
-    removed_image = numpy.dot(stacked_image, numpy.float32(((1.0, 1.0, 0.0,), (0.0, 0.0, 1.0,),))).astype("uint8")
-    added_image = numpy.dot(stacked_image, numpy.float32(((0.0, 1.0, 0.0,), (1.0, 0.0, 1.0,),))).astype("uint8")
+    removed_image = numpy.dot(stacked_image, numpy.float32(removed_color_matrix)).astype("uint8")
+    added_image = numpy.dot(stacked_image, numpy.float32(added_color_matrix)).astype("uint8")
 
     # the final image is produced by selecting between these two RGB images depending on whether each pixel underwent a
     # removal (less black) or an addition (more black). we determine this using a simple pixel value comparison
