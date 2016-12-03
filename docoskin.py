@@ -153,23 +153,39 @@ def diff_overlay_images(
 
 if __name__ == "__main__":
     import argparse
-    from sys import stdout
 
     parser = argparse.ArgumentParser(
         description="Onion-skin two document images and output resulting png file to stdout"
     )
-    parser.add_argument("reference_image", help="Reference document image file")
-    parser.add_argument("candidate_image", help="Candidate document image file")
+    parser.add_argument("reference_image", type=argparse.FileType("r"), help="Reference document image file")
+    parser.add_argument("candidate_image", type=argparse.FileType("r"), help="Candidate document image file")
+    parser.add_argument(
+        "out_image",
+        type=argparse.FileType("w"),
+        nargs="?",
+        default="-",
+        help="Candidate document image file (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--warped-candidate-out", "-w",
+        type=argparse.FileType("w"),
+        metavar="FILE",
+        help="Output warped (but unmerged) candidate image to FILE",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Emit debugging information")
     args = parser.parse_args()
 
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    reference_image = cv2.imread(args.reference_image, cv2.IMREAD_GRAYSCALE)
-    candidate_image = cv2.imread(args.candidate_image, cv2.IMREAD_GRAYSCALE)
+    # we use a combination of numpy and imdecode/imencode for file handling as it allows us to transparently work with
+    # stdin and stdout through "-" options to argparse
+    reference_image = cv2.imdecode(numpy.fromfile(args.reference_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
+    candidate_image = cv2.imdecode(numpy.fromfile(args.candidate_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
 
     warped_candidate = match_and_warp_candidate(reference_image, candidate_image)
+    if args.warped_candidate_out:
+        cv2.imencode(".png", warped_candidate)[1].tofile(args.warped_candidate_out)
     overlayed_candidate = diff_overlay_images(reference_image, warped_candidate)
 
-    cv2.imencode(".png", overlayed_candidate)[1].tofile(stdout)
+    cv2.imencode(".png", overlayed_candidate)[1].tofile(args.out_image)
