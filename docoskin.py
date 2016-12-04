@@ -13,6 +13,8 @@ DEFAULT_RANSAC_REPROJ_THRESHOLD=5.0
 DEFAULT_RANSAC_N_INLIER_THRESHOLD=4
 DEFAULT_REMOVED_COLOR_MATRIX=((1.0, 1.0, 0.0,), (0.0, 0.0, 1.0,),)
 DEFAULT_ADDED_COLOR_MATRIX=((0.0, 1.0, 0.0,), (1.0, 0.0, 1.0,),)
+DEFAULT_CONTRAST_STRETCH_LOWER_PERCENTILE=2.0
+DEFAULT_CONTRAST_STRETCH_UPPER_PERCENTILE=95.0
 
 
 logger = logging.getLogger("docoskin")
@@ -129,6 +131,37 @@ def match_and_warp_candidate(reference_image, candidate_image, **kwargs):
     return cv2.warpPerspective(candidate_image, M, tuple(reversed(reference_image.shape)), flags=cv2.INTER_CUBIC)
 
 
+def stretched_contrast(
+        image,
+        lower_percentile=DEFAULT_CONTRAST_STRETCH_LOWER_PERCENTILE,
+        upper_percentile=DEFAULT_CONTRAST_STRETCH_UPPER_PERCENTILE,
+    ):
+    if lower_percentile is None:
+        black_point = 0
+    elif lower_percentile == 0:
+        black_point = numpy.amin(image)
+    else:
+        black_point = numpy.percentile(image, lower_percentile, interpolation="lower")
+    logger.debug("Black point for image at percentile %r = %s", lower_percentile, black_point)
+
+    if upper_percentile is None:
+        white_point = 255
+    elif upper_percentile == 0:
+        white_point = numpy.amax(image)
+    else:
+        white_point = numpy.percentile(image, upper_percentile, interpolation="higher")
+    logger.debug("White point for image at percentile %r = %s", upper_percentile, white_point)
+
+    out_image = numpy.clip(
+        # careful to convert to float *before* subtraction otherwise we may get wrap-around from any sub-black-point
+        # pixels that become negative if the calculation is done in uint8
+        (image.astype("float32")-black_point)*(255.0/(white_point-black_point)),
+        0,
+        255,
+    ).astype("uint8")
+    return out_image
+
+
 def diff_overlay_images(
         reference_image,
         candidate_image,
@@ -172,6 +205,12 @@ if __name__ == "__main__":
         metavar="FILE",
         help="Output warped (but unmerged) candidate image to FILE",
     )
+    parser.add_argument(
+        "--no-contrast-stretch", "-C",
+        dest="contrast_stretch",
+        action="store_false",
+        help="Don't perform any contrast-stretching steps on input files",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Emit debugging information")
     args = parser.parse_args()
 
@@ -183,9 +222,21 @@ if __name__ == "__main__":
     reference_image = cv2.imdecode(numpy.fromfile(args.reference_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
     candidate_image = cv2.imdecode(numpy.fromfile(args.candidate_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
 
+    if args.contrast_stretch:
+        logger.debug("Stretching contrast for reference_image")
+        reference_image = stretched_contrast(reference_image)
+        logger.debug("Stretching contrast for candidate_image")
+        candidate_image = stretched_contrast(candidate_image)
+
     warped_candidate = match_and_warp_candidate(reference_image, candidate_image)
+    if args.contrast_stretch:
+        # the darkest or lightest regions of the candidate image may now have been transformed off the image area so
+        # we re-apply the contrast stretching to get results calculated based just on the page area
+        logger.debug("Re-stretching contrast for warped candidate")
+        warped_candidate = stretched_contrast(warped_candidate)
     if args.warped_candidate_out:
         cv2.imencode(".png", warped_candidate)[1].tofile(args.warped_candidate_out)
+
     overlayed_candidate = diff_overlay_images(reference_image, warped_candidate)
 
     cv2.imencode(".png", overlayed_candidate)[1].tofile(args.out_image)
