@@ -184,6 +184,32 @@ def diff_overlay_images(
     return numpy.where(numpy.expand_dims(stacked_image[:,:,0] > stacked_image[:,:,1], -1), added_image, removed_image)
 
 
+def docoskin(reference_image, candidate_image, out_file, contrast_stretch=True, warped_candidate_out_file=None):
+    # we use a combination of numpy and imdecode/imencode for file handling as it allows us to transparently work with
+    # any file-like object (including stdin and stdout through "-" options to argparse)
+    reference_image = cv2.imdecode(numpy.fromfile(reference_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
+    candidate_image = cv2.imdecode(numpy.fromfile(candidate_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
+
+    if contrast_stretch:
+        logger.debug("Stretching contrast for reference_image")
+        reference_image = stretched_contrast(reference_image)
+        logger.debug("Stretching contrast for candidate_image")
+        candidate_image = stretched_contrast(candidate_image)
+
+    warped_candidate = match_and_warp_candidate(reference_image, candidate_image)
+    if contrast_stretch:
+        # the darkest or lightest regions of the candidate image may now have been transformed off the image area so
+        # we re-apply the contrast stretching to get results calculated based just on the page area
+        logger.debug("Re-stretching contrast for warped candidate")
+        warped_candidate = stretched_contrast(warped_candidate)
+    if warped_candidate_out_file:
+        cv2.imencode(".png", warped_candidate)[1].tofile(warped_candidate_out_file)
+
+    overlayed_candidate = diff_overlay_images(reference_image, warped_candidate)
+
+    cv2.imencode(".png", overlayed_candidate)[1].tofile(out_file)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -217,26 +243,10 @@ if __name__ == "__main__":
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    # we use a combination of numpy and imdecode/imencode for file handling as it allows us to transparently work with
-    # stdin and stdout through "-" options to argparse
-    reference_image = cv2.imdecode(numpy.fromfile(args.reference_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
-    candidate_image = cv2.imdecode(numpy.fromfile(args.candidate_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
-
-    if args.contrast_stretch:
-        logger.debug("Stretching contrast for reference_image")
-        reference_image = stretched_contrast(reference_image)
-        logger.debug("Stretching contrast for candidate_image")
-        candidate_image = stretched_contrast(candidate_image)
-
-    warped_candidate = match_and_warp_candidate(reference_image, candidate_image)
-    if args.contrast_stretch:
-        # the darkest or lightest regions of the candidate image may now have been transformed off the image area so
-        # we re-apply the contrast stretching to get results calculated based just on the page area
-        logger.debug("Re-stretching contrast for warped candidate")
-        warped_candidate = stretched_contrast(warped_candidate)
-    if args.warped_candidate_out:
-        cv2.imencode(".png", warped_candidate)[1].tofile(args.warped_candidate_out)
-
-    overlayed_candidate = diff_overlay_images(reference_image, warped_candidate)
-
-    cv2.imencode(".png", overlayed_candidate)[1].tofile(args.out_image)
+    docoskin(
+        args.reference_image,
+        args.candidate_image,
+        args.out_image,
+        contrast_stretch=args.contrast_stretch,
+        warped_candidate_out_file=args.warped_candidate_out,
+    )
