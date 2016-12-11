@@ -40,8 +40,29 @@ def default_feature_detector():
     return cv2.AKAZE_create(threshold=DEFAULT_AKAZE_THRESHOLD)
 
 
-def default_feature_matcher():
+def default_bruteforce_feature_matcher():
     return cv2.BFMatcher(normType=cv2.NORM_HAMMING)
+
+
+def default_flann_feature_matcher():
+    return cv2.FlannBasedMatcher(
+        indexParams={
+            "algorithm": 6,  # FLANN_INDEX_LSH
+            "table_number": 6,
+            "key_size": 14,
+            "multi_probe_level": 1,
+        },
+        searchParams={
+            "checks": 32,
+        },
+    )
+
+
+_feature_matchers = {
+    "bruteforce": default_bruteforce_feature_matcher,
+    "flann": default_flann_feature_matcher,
+}
+default_feature_matcher = default_flann_feature_matcher
 
 
 def find_candidate_homography(
@@ -184,7 +205,14 @@ def diff_overlay_images(
     return numpy.where(numpy.expand_dims(stacked_image[:,:,0] > stacked_image[:,:,1], -1), added_image, removed_image)
 
 
-def docoskin(reference_image, candidate_image, out_file, contrast_stretch=True, warped_candidate_out_file=None):
+def docoskin(
+        reference_image,
+        candidate_image,
+        out_file,
+        contrast_stretch=True,
+        warped_candidate_out_file=None,
+        feature_matcher=None,
+        ):
     # we use a combination of numpy and imdecode/imencode for file handling as it allows us to transparently work with
     # any file-like object (including stdin and stdout through "-" options to argparse)
     reference_image = cv2.imdecode(numpy.fromfile(reference_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
@@ -196,7 +224,7 @@ def docoskin(reference_image, candidate_image, out_file, contrast_stretch=True, 
         logger.debug("Stretching contrast for candidate_image")
         candidate_image = stretched_contrast(candidate_image)
 
-    warped_candidate = match_and_warp_candidate(reference_image, candidate_image)
+    warped_candidate = match_and_warp_candidate(reference_image, candidate_image, feature_matcher=feature_matcher)
     if contrast_stretch:
         # the darkest or lightest regions of the candidate image may now have been transformed off the image area so
         # we re-apply the contrast stretching to get results calculated based just on the page area
@@ -226,6 +254,12 @@ if __name__ == "__main__":
         help="Candidate document image file (default: %(default)s)",
     )
     parser.add_argument(
+        "--matcher", "-m",
+        choices=_feature_matchers.keys(),
+        default="flann",
+        help="Select which feature matcher to use",
+    )
+    parser.add_argument(
         "--warped-candidate-out", "-w",
         type=argparse.FileType("w"),
         metavar="FILE",
@@ -249,4 +283,5 @@ if __name__ == "__main__":
         args.out_image,
         contrast_stretch=args.contrast_stretch,
         warped_candidate_out_file=args.warped_candidate_out,
+        feature_matcher=_feature_matchers[args.matcher](),
     )
