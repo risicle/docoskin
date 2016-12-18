@@ -261,12 +261,16 @@ def docoskin(
         logger.debug("Stretching contrast for candidate_image")
         candidate_image = stretched_contrast(candidate_image)
 
-    warped_candidate = match_and_warp_candidate(reference_image, candidate_image, feature_matcher=feature_matcher)
+    warped_candidate, M = match_and_warp_candidate(reference_image, candidate_image, feature_matcher=feature_matcher)
+
+    coverage = coverage_from_candidate_warp(reference_image, candidate_image, M)
+    logger.debug("Warped candidate coverage = %s", coverage)
+
     if contrast_stretch:
         # the darkest or lightest regions of the candidate image may now have been transformed off the image area so
         # we re-apply the contrast stretching to get results calculated based just on the page area
         logger.debug("Re-stretching contrast for warped candidate")
-        warped_candidate = stretched_contrast(warped_candidate)
+        warped_candidate = stretched_contrast(warped_candidate, coverage=coverage)
     if warped_candidate_out_file:
         cv2.imencode(".png", warped_candidate)[1].tofile(warped_candidate_out_file)
 
