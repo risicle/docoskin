@@ -1,5 +1,5 @@
 from collections import namedtuple
-from itertools import compress
+from itertools import compress, product
 import logging
 
 import cv2
@@ -157,6 +157,30 @@ def match_and_warp_candidate(reference_image, candidate_image, **kwargs):
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=0,
     ), M
+
+
+def coverage_from_candidate_warp(reference_image, candidate_image, M):
+    # first check if given this projection M, any corners of reference_image lie outside the extents of candidate_image
+    if all(
+            0 <= x < candidate_image.shape[1] and 0 <= y < candidate_image.shape[0]
+            for x, y in cv2.perspectiveTransform(
+                # did i mention perspectiveTransform expects a weird coordinate array format?
+                numpy.float32((tuple(product((0, reference_image.shape[1],), (0, reference_image.shape[0],))),)),
+                numpy.linalg.inv(M),
+            )[0]
+            ):
+        # they don't - let's not waste our time calculating anything else
+        return 1.0
+
+    # "count" the number of pixels that would make it onto the reference_image canvas
+    return cv2.warpPerspective(
+        numpy.ones_like(candidate_image),
+        M,
+        tuple(reversed(reference_image.shape)),
+        flags=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    ).sum(dtype="float32") / (reference_image.shape[0] * reference_image.shape[1])
 
 
 def stretched_contrast(
