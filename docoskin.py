@@ -187,21 +187,27 @@ def stretched_contrast(
         image,
         lower_percentile=DEFAULT_CONTRAST_STRETCH_LOWER_PERCENTILE,
         upper_percentile=DEFAULT_CONTRAST_STRETCH_UPPER_PERCENTILE,
-    ):
+        coverage=1.0,  # the proportion of the image which is covered by relevant pixels (non-relevant pixels are
+                       # expected to be value 0)
+        ):
     if lower_percentile is None:
         black_point = 0
-    elif lower_percentile == 0:
-        black_point = numpy.amin(image)
     else:
-        black_point = numpy.percentile(image, lower_percentile, interpolation="lower")
+        black_point = numpy.percentile(
+            image,
+            (1.0 - coverage) + (lower_percentile * coverage),
+            interpolation="lower",
+        )
     logger.debug("Black point for image at percentile %r = %s", lower_percentile, black_point)
 
     if upper_percentile is None:
         white_point = 255
-    elif upper_percentile == 0:
-        white_point = numpy.amax(image)
     else:
-        white_point = numpy.percentile(image, upper_percentile, interpolation="higher")
+        white_point = numpy.percentile(
+            image,
+            (1.0 - coverage) + (upper_percentile * coverage),
+            interpolation="higher",
+        )
     logger.debug("White point for image at percentile %r = %s", upper_percentile, white_point)
 
     out_image = numpy.clip(
