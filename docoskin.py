@@ -149,7 +149,14 @@ def find_candidate_homography(
 
 def match_and_warp_candidate(reference_image, candidate_image, **kwargs):
     M = find_candidate_homography(reference_image, candidate_image, **kwargs)[0]
-    return cv2.warpPerspective(candidate_image, M, tuple(reversed(reference_image.shape)), flags=cv2.INTER_CUBIC)
+    return cv2.warpPerspective(
+        candidate_image,
+        M,
+        tuple(reversed(reference_image.shape)),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    ), M
 
 
 def stretched_contrast(
