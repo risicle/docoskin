@@ -86,4 +86,4 @@ def test_full_pipeline(tmpdir, reference_path, candidate_path, black_bbox, white
         region_pixels = recovered_image[y0:y1,x0:x1].reshape((-1,3))
         pixel_value_deltas = numpy.float32(target_bgr) - region_pixels
         pixel_value_distances = numpy.sqrt(numpy.sum(pixel_value_deltas**2, axis=1))
-        assert numpy.percentile(pixel_value_distances, 75.0, interpolation="lower") < 10
+        assert numpy.percentile(pixel_value_distances, 75.0, interpolation="lower") < 16
