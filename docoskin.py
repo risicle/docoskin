@@ -159,13 +159,13 @@ def match_and_warp_candidate(reference_image, candidate_image, warp_image=None, 
     ), M
 
 
-def coverage_from_candidate_warp(reference_image, candidate_image, M):
+def coverage_from_candidate_warp(reference_image_shape, candidate_image_shape, M):
     # first check if given this projection M, any corners of reference_image lie outside the extents of candidate_image
     if all(
-            0 <= x < candidate_image.shape[1] and 0 <= y < candidate_image.shape[0]
+            0 <= x < candidate_image_shape[1] and 0 <= y < candidate_image_shape[0]
             for x, y in cv2.perspectiveTransform(
                 # did i mention perspectiveTransform expects a weird coordinate array format?
-                numpy.float32((tuple(product((0, reference_image.shape[1],), (0, reference_image.shape[0],))),)),
+                numpy.float32((tuple(product((0, reference_image_shape[1],), (0, reference_image_shape[0],))),)),
                 numpy.linalg.inv(M),
             )[0]
             ):
@@ -174,13 +174,13 @@ def coverage_from_candidate_warp(reference_image, candidate_image, M):
 
     # "count" the number of pixels that would make it onto the reference_image canvas
     return cv2.warpPerspective(
-        numpy.ones_like(candidate_image),
+        numpy.ones(candidate_image_shape),
         M,
-        tuple(reversed(reference_image.shape)),
+        tuple(reversed(reference_image_shape)),
         flags=cv2.INTER_NEAREST,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=0,
-    ).sum(dtype="float32") / (reference_image.shape[0] * reference_image.shape[1])
+    ).sum(dtype="float32") / (reference_image_shape[0] * reference_image_shape[1])
 
 
 def stretched_contrast(
@@ -277,7 +277,7 @@ def docoskin(
     if contrast_stretch:
         # the darkest or lightest regions of the candidate image may now have been transformed off the image area so
         # we re-apply the contrast stretching to get results calculated based just on the page area
-        coverage = coverage_from_candidate_warp(reference_image, candidate_image, M)
+        coverage = coverage_from_candidate_warp(reference_image.shape, candidate_image.shape, M)
         logger.debug("Warped candidate coverage = %s", coverage)
         logger.debug("Re-stretching contrast for warped candidate")
         warped_candidate = stretched_contrast(warped_candidate, coverage=coverage)
