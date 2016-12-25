@@ -13,8 +13,8 @@ DEFAULT_RANSAC_REPROJ_THRESHOLD=5.0
 DEFAULT_RANSAC_N_INLIER_THRESHOLD=4
 DEFAULT_REMOVED_COLOR_MATRIX=((1.0, 1.0, 0.0,), (0.0, 0.0, 1.0,),)
 DEFAULT_ADDED_COLOR_MATRIX=((0.0, 1.0, 0.0,), (1.0, 0.0, 1.0,),)
-DEFAULT_CONTRAST_STRETCH_LOWER_PERCENTILE=2.0
-DEFAULT_CONTRAST_STRETCH_UPPER_PERCENTILE=95.0
+DEFAULT_CONTRAST_STRETCH_LOWER_PERCENTILE=3.0
+DEFAULT_CONTRAST_STRETCH_UPPER_PERCENTILE=92.5
 
 
 logger = logging.getLogger("docoskin")
@@ -147,10 +147,10 @@ def find_candidate_homography(
     return M, extended_output
 
 
-def match_and_warp_candidate(reference_image, candidate_image, **kwargs):
+def match_and_warp_candidate(reference_image, candidate_image, warp_image=None, **kwargs):
     M = find_candidate_homography(reference_image, candidate_image, **kwargs)[0]
     return cv2.warpPerspective(
-        candidate_image,
+        warp_image if warp_image is not None else candidate_image,
         M,
         tuple(reversed(reference_image.shape)),
         flags=cv2.INTER_CUBIC,
@@ -252,8 +252,14 @@ def docoskin(
         ):
     # we use a combination of numpy and imdecode/imencode for file handling as it allows us to transparently work with
     # any file-like object (including stdin and stdout through "-" options to argparse)
-    reference_image = cv2.imdecode(numpy.fromfile(reference_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
-    candidate_image = cv2.imdecode(numpy.fromfile(candidate_image, dtype="uint8"), cv2.IMREAD_GRAYSCALE)
+    reference_image = original_reference_image = cv2.imdecode(
+        numpy.fromfile(reference_image, dtype="uint8"),
+        cv2.IMREAD_GRAYSCALE,
+    )
+    candidate_image = original_candidate_image = cv2.imdecode(
+        numpy.fromfile(candidate_image, dtype="uint8"),
+        cv2.IMREAD_GRAYSCALE,
+    )
 
     if contrast_stretch:
         logger.debug("Stretching contrast for reference_image")
@@ -261,14 +267,18 @@ def docoskin(
         logger.debug("Stretching contrast for candidate_image")
         candidate_image = stretched_contrast(candidate_image)
 
-    warped_candidate, M = match_and_warp_candidate(reference_image, candidate_image, feature_matcher=feature_matcher)
-
-    coverage = coverage_from_candidate_warp(reference_image, candidate_image, M)
-    logger.debug("Warped candidate coverage = %s", coverage)
+    warped_candidate, M = match_and_warp_candidate(
+        reference_image,
+        candidate_image,
+        warp_image=original_candidate_image,
+        feature_matcher=feature_matcher,
+    )
 
     if contrast_stretch:
         # the darkest or lightest regions of the candidate image may now have been transformed off the image area so
         # we re-apply the contrast stretching to get results calculated based just on the page area
+        coverage = coverage_from_candidate_warp(reference_image, candidate_image, M)
+        logger.debug("Warped candidate coverage = %s", coverage)
         logger.debug("Re-stretching contrast for warped candidate")
         warped_candidate = stretched_contrast(warped_candidate, coverage=coverage)
     if warped_candidate_out_file:
