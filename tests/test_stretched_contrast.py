@@ -10,8 +10,8 @@ import pytest
 
 
 @pytest.mark.parametrize("lower_percentile,upper_percentile,shuffle_pixels", tuple(product(
-    (0, 5, 15, 45,),
-    (77, 90, 92, 100,),
+    (0, 1, 5, 14.3, 45,),
+    (77, 90, 92.7, 99, 100,),
     (False, True,),
 )))
 def test_stretched_contrast(lower_percentile, upper_percentile, shuffle_pixels):
