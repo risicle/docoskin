@@ -31,3 +31,10 @@ def test_stretched_contrast(lower_percentile, upper_percentile, shuffle_pixels):
     # the following comparison value is clipped to 255 (via min()) as we are expected to accept 100.0 percent as a
     # maximum makes the input a closed interval, but we of course are working against half-open interval data.
     assert ((adjusted_image == 255) == (image >= min(floor((float(upper_percentile)/100)*256), 255))).all()
+
+    # the 100's cancel out in this expected_new_median calculation
+    expected_new_median =  256 * (50.0-lower_percentile)/(upper_percentile-lower_percentile)
+    # we should allow a tolerance for quantization difficulties, but this should vary with the amount of "gain" that's
+    # expected to be applied to the image
+    tolerance = 1.5 * 100.0/(upper_percentile-lower_percentile)
+    assert abs(numpy.percentile(adjusted_image,  50.0, interpolation="lower") - expected_new_median) <= tolerance
