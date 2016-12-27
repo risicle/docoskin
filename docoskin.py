@@ -206,14 +206,16 @@ def stretched_contrast(
         white_point = numpy.percentile(
             image,
             (1.0 - coverage) + (upper_percentile * coverage),
-            interpolation="higher",
+            # "lower" is arguably the right choice here, but the reality is that "lower" is the easier behaviour to
+            # predict/test against
+            interpolation="lower",
         )
     logger.debug("White point for image at percentile %r = %s", upper_percentile, white_point)
 
     out_image = numpy.clip(
         # careful to convert to float *before* subtraction otherwise we may get wrap-around from any sub-black-point
         # pixels that become negative if the calculation is done in uint8
-        (image.astype("float32")-black_point)*(255.0/(white_point-black_point)),
+        ((image.astype("float32")-black_point)*(255.0/(white_point-black_point))).round(),
         0,
         255,
     ).astype("uint8")
