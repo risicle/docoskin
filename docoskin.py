@@ -215,7 +215,7 @@ def stretched_contrast(
     out_image = numpy.clip(
         # careful to convert to float *before* subtraction otherwise we may get wrap-around from any sub-black-point
         # pixels that become negative if the calculation is done in uint8
-        ((image.astype("float32")-black_point)*(255.0/(white_point-black_point))).round(),
+        (image.astype("float32")-black_point)*(256.0/(white_point-black_point)),
         0,
         255,
     ).astype("uint8")
