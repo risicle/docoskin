@@ -10,8 +10,8 @@ import pytest
 
 
 @pytest.mark.parametrize("lower_percentile,upper_percentile,shuffle_pixels", tuple(product(
-    (5, 15, 45,),
-    (77, 90, 92,),
+    (0, 5, 15, 45,),
+    (77, 90, 92, 100,),
     (False, True,),
 )))
 def test_stretched_contrast(lower_percentile, upper_percentile, shuffle_pixels):
@@ -28,4 +28,6 @@ def test_stretched_contrast(lower_percentile, upper_percentile, shuffle_pixels):
     adjusted_image = stretched_contrast(image, lower_percentile=lower_percentile, upper_percentile=upper_percentile)
 
     assert ((adjusted_image == 0) == (image <= floor((float(lower_percentile)/100)*256))).all()
-    assert ((adjusted_image == 255) == (image >= floor((float(upper_percentile)/100)*256))).all()
+    # the following comparison value is clipped to 255 (via min()) as we are expected to accept 100.0 percent as a
+    # maximum makes the input a closed interval, but we of course are working against half-open interval data.
+    assert ((adjusted_image == 255) == (image >= min(floor((float(upper_percentile)/100)*256), 255))).all()
