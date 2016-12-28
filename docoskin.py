@@ -195,7 +195,7 @@ def stretched_contrast(
     else:
         black_point = numpy.percentile(
             image,
-            (1.0 - coverage) + (lower_percentile * coverage),
+            (100 * (1.0-coverage)) + (lower_percentile*coverage),
             interpolation="lower",
         )
     logger.debug("Black point for image at percentile %r = %s", lower_percentile, black_point)
@@ -205,7 +205,7 @@ def stretched_contrast(
     else:
         white_point = numpy.percentile(
             image,
-            (1.0 - coverage) + (upper_percentile * coverage),
+            (100 * (1.0-coverage)) + (upper_percentile*coverage),
             # "lower" is arguably the right choice here, but the reality is that "lower" is the easier behaviour to
             # predict/test against
             interpolation="lower",
