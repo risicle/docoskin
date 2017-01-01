@@ -109,7 +109,10 @@ def find_candidate_homography(
         # so now reference_keypoints and reference_descriptors should have been defined one way or another
         matches = feature_matcher.knnMatch(candidate_descriptors, reference_descriptors, k=2)
 
-    good_match_mask = tuple(m.distance < feature_distance_ratio_threshold*n.distance for m, n in matches)
+    good_match_mask = tuple(
+        match and (len(match) == 1 or match[0].distance < feature_distance_ratio_threshold*match[1].distance)
+        for match in matches
+    )
     n_good_matches = sum(1 for good in good_match_mask if good)
     if n_good_matches < n_match_threshold:
         raise DocoskinNoMatchFoundError("Not enough 'good' feature matches found ({})".format(n_good_matches))
@@ -117,10 +120,10 @@ def find_candidate_homography(
     logger.debug("Found %i/%i 'good' keypoint matches", n_good_matches, len(matches))
 
     reference_coords = numpy.float32(tuple(
-        reference_keypoints[m.trainIdx].pt for m, n in compress(matches, good_match_mask)
+        reference_keypoints[match[0].trainIdx].pt for match in compress(matches, good_match_mask)
     )).reshape(-1, 1, 2,)
     candidate_coords = numpy.float32(tuple(
-        candidate_keypoints[m.queryIdx].pt for m, n in compress(matches, good_match_mask)
+        candidate_keypoints[match[0].queryIdx].pt for match in compress(matches, good_match_mask)
     )).reshape(-1, 1, 2,)
 
     M, inlier_mask = cv2.findHomography(candidate_coords, reference_coords, cv2.RANSAC, ransac_reproj_threshold)
@@ -134,13 +137,13 @@ def find_candidate_homography(
         reference_keypoints=reference_keypoints,
         candidate_keypoints=candidate_keypoints,
         inlier_matches=tuple(
-            m for m, n in compress(compress(matches, good_match_mask), inlier_mask.flat)
+            match[0] for match in compress(compress(matches, good_match_mask), inlier_mask.flat)
         ),
         outlier_matches=tuple(
-            m for m, n in compress(compress(matches, good_match_mask), ((not inlier) for inlier in inlier_mask.flat))
+            match[0] for match in compress(compress(matches, good_match_mask), ((not inlier) for inlier in inlier_mask.flat))
         ),
         bad_matches=tuple(
-            m for m, n in compress(matches, ((not good) for good in good_match_mask))
+            match[0] for match in compress(matches, ((not good) for good in good_match_mask))
         ),
     )
 
