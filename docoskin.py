@@ -5,6 +5,8 @@ import logging
 import cv2
 import numpy
 
+from dummythreadpoolexecutor import DummyThreadPoolExecutor
+
 
 DEFAULT_AKAZE_THRESHOLD=0.005
 DEFAULT_FEATURE_DISTANCE_RATIO_THRESHOLD=0.7
@@ -36,15 +38,15 @@ FindCandidateHomographyExtendedOutput = namedtuple(
 )
 
 
-def default_feature_detector():
+def default_feature_detector_factory():
     return cv2.AKAZE_create(threshold=DEFAULT_AKAZE_THRESHOLD)
 
 
-def default_bruteforce_feature_matcher():
+def default_bruteforce_feature_matcher_factory():
     return cv2.BFMatcher(normType=cv2.NORM_HAMMING)
 
 
-def default_flann_feature_matcher():
+def default_flann_feature_matcher_factory():
     return cv2.FlannBasedMatcher(
         indexParams={
             "algorithm": 6,  # FLANN_INDEX_LSH
@@ -58,17 +60,26 @@ def default_flann_feature_matcher():
     )
 
 
-_feature_matchers = {
-    "bruteforce": default_bruteforce_feature_matcher,
-    "flann": default_flann_feature_matcher,
+_feature_matcher_factories = {
+    "bruteforce": default_bruteforce_feature_matcher_factory,
+    "flann": default_flann_feature_matcher_factory,
 }
-default_feature_matcher = default_flann_feature_matcher
+default_feature_matcher_factory = default_flann_feature_matcher_factory
+
+
+_KeypointsDescriptorsTuple = namedtuple("KeypointsDescriptorsTuple", ("keypoints", "descriptors"))
+
+
+def _detect_and_compute(feature_detector_factory, image, name=None):
+    r = _KeypointsDescriptorsTuple(*feature_detector_factory().detectAndCompute(image, None))
+    logger.debug("Found %i keypoints%s%s", len(r.keypoints), " in " if name else "", name)
+    return r
 
 
 def find_candidate_homography(
         reference_image,
         candidate_image,
-        feature_detector=None,
+        feature_detector_factory=None,
         feature_matcher=None,
         feature_distance_ratio_threshold=DEFAULT_FEATURE_DISTANCE_RATIO_THRESHOLD,
         n_match_threshold=DEFAULT_N_MATCH_THRESHOLD,
@@ -76,13 +87,18 @@ def find_candidate_homography(
         reference_descriptors=None,
         ransac_reproj_threshold=DEFAULT_RANSAC_REPROJ_THRESHOLD,
         ransac_n_inlier_threshold=DEFAULT_RANSAC_N_INLIER_THRESHOLD,
+        thread_pool=None,
         ):
-    feature_detector = feature_detector or default_feature_detector()
-    feature_matcher = feature_matcher or default_feature_matcher()
+    feature_detector_factory = feature_detector_factory or default_feature_detector_factory
+    feature_matcher = feature_matcher or default_feature_matcher_factory()
+    thread_pool = thread_pool or DummyThreadPoolExecutor()
 
-    candidate_keypoints, candidate_descriptors = feature_detector.detectAndCompute(candidate_image, None)
-
-    logger.debug("Found %i keypoints in candidate", len(candidate_keypoints))
+    candidate_kp_dsc_f = thread_pool.submit(
+        _detect_and_compute,
+        feature_detector_factory,
+        candidate_image,
+        "candidate",
+    )
 
     already_trained_descriptors = feature_matcher.getTrainDescriptors()
     if already_trained_descriptors:
@@ -91,11 +107,17 @@ def find_candidate_homography(
                 "Pre-trained feature matchers require a reference_keypoints argument containing the corresponding "
                 "keypoints"
             )
-        matches = feature_matcher.knnMatch(candidate_descriptors, k=2)
+        matches = feature_matcher.knnMatch(candidate_kp_dsc_f.result().descriptors, k=2)
     else:
         if not (reference_keypoints or reference_descriptors):
-            reference_keypoints, reference_descriptors = feature_detector.detectAndCompute(reference_image, None)
-            logger.debug("Found %i keypoints in reference", len(reference_keypoints))
+            reference_kp_dsc_f = thread_pool.submit(
+                _detect_and_compute,
+                feature_detector_factory,
+                reference_image,
+                "reference",
+            )
+            # no point in waiting the reference_kp_dsc_f, we need it for the next step
+            reference_keypoints, reference_descriptors = reference_kp_dsc_f.result()
         elif reference_keypoints and reference_descriptors:
             if len(reference_keypoints) != len(reference_descriptors):
                 raise DocoskinInvalidArgumentCombinationError(
@@ -107,7 +129,11 @@ def find_candidate_homography(
             )
 
         # so now reference_keypoints and reference_descriptors should have been defined one way or another
-        matches = feature_matcher.knnMatch(candidate_descriptors, reference_descriptors, k=2)
+        matches = feature_matcher.knnMatch(candidate_kp_dsc_f.result().descriptors, reference_descriptors, k=2)
+
+    # candidate_kp_dsc_f must have returned by now to get to this point, so let's give them some more conventient
+    # accessors
+    candidate_keypoints, candidate_descriptors = candidate_kp_dsc_f.result()
 
     good_match_mask = tuple(
         match and (len(match) == 1 or match[0].distance < feature_distance_ratio_threshold*match[1].distance)
@@ -339,5 +365,5 @@ if __name__ == "__main__":
         args.out_image,
         contrast_stretch=args.contrast_stretch,
         warped_candidate_out_file=args.warped_candidate_out,
-        feature_matcher=_feature_matchers[args.matcher](),
+        feature_matcher=_feature_matcher_factories[args.matcher](),
     )
