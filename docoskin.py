@@ -339,7 +339,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--matcher", "-m",
-        choices=_feature_matchers.keys(),
+        choices=_feature_matcher_factories.keys(),
         default="flann",
         help="Select which feature matcher to use",
     )
