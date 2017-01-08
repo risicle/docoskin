@@ -280,6 +280,7 @@ def docoskin(
         contrast_stretch=True,
         warped_candidate_out_file=None,
         feature_matcher=None,
+        thread_pool=None,
         ):
     # we use a combination of numpy and imdecode/imencode for file handling as it allows us to transparently work with
     # any file-like object (including stdin and stdout through "-" options to argparse)
@@ -303,6 +304,7 @@ def docoskin(
         candidate_image,
         warp_image=original_candidate_image,
         feature_matcher=feature_matcher,
+        thread_pool=thread_pool,
     )
 
     if contrast_stretch:
