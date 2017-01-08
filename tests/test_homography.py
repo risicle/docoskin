@@ -47,12 +47,12 @@ from utils import read_test_image
         (272, 1771), (1298, 1970),
     ), 5,),
 ))
-def test_matrix_generation(reference_path, candidate_path, ref_corners_in_cand, tolerance,):
+def test_matrix_generation(reference_path, candidate_path, ref_corners_in_cand, tolerance, thread_pool,):
     reference_image = read_test_image(reference_path)
     candidate_image = read_test_image(candidate_path)
 
     logging.basicConfig(level=logging.DEBUG)
-    M = find_candidate_homography(reference_image, candidate_image)[0]
+    M = find_candidate_homography(reference_image, candidate_image, thread_pool=thread_pool)[0]
 
     # opencv wants its coords in a slightly odd format for this call
     ref_corners_in_cand_a = numpy.float32((ref_corners_in_cand,))
