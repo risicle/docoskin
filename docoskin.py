@@ -1,4 +1,5 @@
 from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
 from itertools import compress, product
 import logging
 
@@ -325,6 +326,12 @@ def docoskin(
 if __name__ == "__main__":
     import argparse
 
+    def nonneg_int(value):
+        n = int(value)
+        if n < 0:
+            raise ValueError("Value cannot be negative")
+        return n
+
     parser = argparse.ArgumentParser(
         description="Onion-skin two document images and output resulting png file to stdout"
     )
@@ -342,6 +349,14 @@ if __name__ == "__main__":
         choices=_feature_matcher_factories.keys(),
         default="flann",
         help="Select which feature matcher to use",
+    )
+    parser.add_argument(
+        "--threads", "-t",
+        type=nonneg_int,
+        default=2,
+        metavar="N",
+        help="Number of python threads to use (default: %(default)s). 0 disables threading, opencv may use more " \
+            "threads internally",
     )
     parser.add_argument(
         "--warped-candidate-out", "-w",
@@ -368,4 +383,5 @@ if __name__ == "__main__":
         contrast_stretch=args.contrast_stretch,
         warped_candidate_out_file=args.warped_candidate_out,
         feature_matcher=_feature_matcher_factories[args.matcher](),
+        thread_pool=ThreadPoolExecutor(args.threads) if args.threads else None,
     )
