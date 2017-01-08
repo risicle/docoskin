@@ -59,7 +59,16 @@ _why_ten_years_bboxes = (
         "why-ten-years/candidate03.png",
     ) + _why_ten_years_bboxes,
 ))
-def test_full_pipeline(tmpdir, reference_path, candidate_path, black_bbox, white_bbox, added_bbox, removed_bbox):
+def test_full_pipeline(
+        tmpdir,
+        reference_path,
+        candidate_path,
+        black_bbox,
+        white_bbox,
+        added_bbox,
+        removed_bbox,
+        thread_pool,
+        ):
     reference_image = read_test_image(reference_path)
     reference_image_shape = reference_image.shape
     del reference_image  # allow python to recover this memory
@@ -70,7 +79,7 @@ def test_full_pipeline(tmpdir, reference_path, candidate_path, black_bbox, white
     out_file = tmpdir.join("out.png").ensure(file=True).open("r+")
 
     logging.basicConfig(level=logging.DEBUG)
-    docoskin(reference_image_file, candidate_image_file, out_file)
+    docoskin(reference_image_file, candidate_image_file, out_file, thread_pool=thread_pool)
 
     out_file.seek(0)
 
