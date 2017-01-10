@@ -108,7 +108,6 @@ def find_candidate_homography(
                 "Pre-trained feature matchers require a reference_keypoints argument containing the corresponding "
                 "keypoints"
             )
-        matches = feature_matcher.knnMatch(candidate_kp_dsc_f.result().descriptors, k=2)
     else:
         if not (reference_keypoints or reference_descriptors):
             reference_kp_dsc_f = thread_pool.submit(
@@ -129,8 +128,11 @@ def find_candidate_homography(
                 "Doesn't make sense to supply reference_keypoints without reference_descriptors or vice-versa"
             )
 
-        # so now reference_keypoints and reference_descriptors should have been defined one way or another
-        matches = feature_matcher.knnMatch(candidate_kp_dsc_f.result().descriptors, reference_descriptors, k=2)
+        feature_matcher.add((reference_descriptors,))
+        # so now reference_keypoints and reference_descriptors should have been defined and feature_matcher should have
+        # its reference_descriptors one way or another
+
+    matches = feature_matcher.knnMatch(candidate_kp_dsc_f.result().descriptors, k=2)
 
     # candidate_kp_dsc_f must have returned by now to get to this point, so let's give them some more conventient
     # accessors
@@ -141,10 +143,9 @@ def find_candidate_homography(
         for match in matches
     )
     n_good_matches = sum(1 for good in good_match_mask if good)
+    logger.debug("Found %i/%i 'good' keypoint matches", n_good_matches, len(matches))
     if n_good_matches < n_match_threshold:
         raise DocoskinNoMatchFoundError("Not enough 'good' feature matches found ({})".format(n_good_matches))
-
-    logger.debug("Found %i/%i 'good' keypoint matches", n_good_matches, len(matches))
 
     reference_coords = numpy.float32(tuple(
         reference_keypoints[match[0].trainIdx].pt for match in compress(matches, good_match_mask)
