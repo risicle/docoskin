@@ -78,7 +78,6 @@ def test_full_pipeline(
 
     out_file = tmpdir.join("out.png").ensure(file=True).open("r+")
 
-    logging.basicConfig(level=logging.DEBUG)
     docoskin(reference_image_file, candidate_image_file, out_file, thread_pool=thread_pool)
 
     out_file.seek(0)

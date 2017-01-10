@@ -51,7 +51,6 @@ def test_matrix_generation(reference_path, candidate_path, ref_corners_in_cand, 
     reference_image = read_test_image(reference_path)
     candidate_image = read_test_image(candidate_path)
 
-    logging.basicConfig(level=logging.DEBUG)
     M = find_candidate_homography(reference_image, candidate_image, thread_pool=thread_pool)[0]
 
     # opencv wants its coords in a slightly odd format for this call

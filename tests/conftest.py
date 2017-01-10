@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import logging
 
 import pytest
 
@@ -11,3 +12,11 @@ def thread_pool(request):
 
     if thread_pool is not None:
         thread_pool.shutdown()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def debug_logging(request):
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s:%(levelname)s:%(name)s:%(threadName)s:%(message)s",
+    )

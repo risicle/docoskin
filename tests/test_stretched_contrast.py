@@ -16,7 +16,6 @@ import pytest
     (False, True,),
 )))
 def test_stretched_contrast(lower_percentile, upper_percentile, uncovered_rows, shuffle_pixels):
-    logging.basicConfig(level=logging.DEBUG)
     image = numpy.broadcast_to(numpy.arange(256, dtype="uint8"), (256, 256))
 
     if shuffle_pixels:
