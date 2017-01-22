@@ -4,7 +4,7 @@ from math import floor
 
 
 import cv2
-from docoskin import stretched_contrast
+from docoskin.image_operations import stretched_contrast
 import numpy
 import pytest
 

@@ -2,7 +2,7 @@ from itertools import product
 
 
 import cv2
-from docoskin import coverage_from_candidate_warp
+from docoskin.image_operations import coverage_from_candidate_warp
 import numpy
 import pytest
 

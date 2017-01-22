@@ -4,7 +4,7 @@ from math import hypot
 
 
 import cv2
-from docoskin import find_candidate_homography
+from docoskin.warping import find_candidate_homography
 import numpy
 import pytest
 from six.moves import zip as izip

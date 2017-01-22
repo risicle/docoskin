@@ -1,3 +1,8 @@
+"""
+    Contains apparatus to allow docoskin to run in an unthreaded mode (without knowing about it)
+"""
+from __future__ import absolute_import
+
 from six.moves import map as imap
 
 
