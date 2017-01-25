@@ -69,7 +69,7 @@ def docoskin(
     cv2.imencode(".png", overlayed_candidate)[1].tofile(out_file)
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     def nonneg_int(value):
@@ -131,3 +131,7 @@ if __name__ == "__main__":
         feature_matcher=_feature_matcher_factories[args.matcher](),
         thread_pool=ThreadPoolExecutor(args.threads) if args.threads else None,
     )
+
+
+if __name__ == "__main__":
+    main()
