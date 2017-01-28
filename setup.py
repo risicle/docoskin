@@ -48,10 +48,13 @@ setup(
     tests_require=["pytest"],
     install_requires=[
         # omitting opencv >= 3.1.0 dependency as there is no standard python package for it and therefore no universal
-        # way to detect it. i advocate using nix to satisfy all these depeendencies.
+        # way to detect it. i advocate using nix to satisfy all these dependencies, hence the included default.nix.
         "six",
-        'futures;python_version<"3.2"',
     ],
+    extras_require={
+        ':python_version<"3"': ["futures"],
+        "pypi_opencv": ["opencv-python >= 3.1.0"],
+    },
 
     entry_points={
         'console_scripts': [
