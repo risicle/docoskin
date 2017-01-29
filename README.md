@@ -35,3 +35,15 @@ $ pip install -e .[pypi_opencv]
 concept of downloading & installing binaries from pypi.
 
 Preliminary license is GPLv3.
+
+## Tests
+
+The test suite makes use of images which are kept in a git submodule due to their size. Performing a
+
+```
+$ git submodule init
+$ git submodule update
+```
+
+should fetch the required data. If this data is not present, the tests will quietly skip tests requiring images (which
+is most of them, though).
