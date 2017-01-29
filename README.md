@@ -15,8 +15,8 @@ achievable through accessing the python components.
 Depends on opencv and six (and, on python2.7, the `futures` backport).
 
 opencv is always going to be a slightly painful dependency from a python point of view because a) it's a native library
-and b) it doesn't really play by python packaging rules supplying an egg. I advocate use of `nix` to solve both these
-problems and provide a `default.nix` so that `nix` users can simply perform a
+and b) it doesn't really play by python packaging rules supplying an egg. I advocate use of [Nix](http://nixos.org/) to
+solve both these problems and provide a `default.nix` so that `nix` users can simply perform a
 
 ```
 $ nix-shell .
