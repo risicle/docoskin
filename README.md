@@ -22,7 +22,7 @@ solve both these problems and provide a `default.nix` so that `nix` users can si
 $ nix-shell .
 ```
 
-in the source directory for a development-ready shell (somthing like non-python-specific `virtualenv`).
+in the source directory for a development-ready shell (somthing like a non-python-specific `virtualenv`).
 
 Those wishing to attempt using the pypi `opencv-python` package can try installing the package with the 'extra'
 `pypi_opencv`, which _hypothetically_ should download & install opencv from pypi
