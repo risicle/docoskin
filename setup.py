@@ -22,6 +22,7 @@ setup(
 
     description='"Onion-skin" visual differences between a reference document image and a scanned copy',
     long_description=long_description,
+    long_description_content_type="text/markdown",
 
     url='https://github.com/risicle/docoskin',
 
